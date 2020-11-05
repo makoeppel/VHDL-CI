@@ -3,15 +3,18 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
+library vunit_lib;
+context vunit_lib.vunit_context;
+context vunit_lib.vc_context;
+
 entity counter_tb is
+    generic (runner_cfg : string);
 end entity;
 
 architecture arch of counter_tb is
 
     constant CLK_MHZ : real := 1000.0; -- MHz
-    signal clk, reset_n : std_logic := '0';
-    
-    signal DONE : std_logic_vector(0 downto 0) := (others => '0');
+    signal clk, reset_n, valid : std_logic := '0';
     
     constant W : positive := 32;
     signal cnt : std_logic_vector(W-1 downto 0);
@@ -32,26 +35,27 @@ begin
         i_reset_n   => reset_n,
         i_clk       => clk--,
     );
-    
-    process
-    begin
-        wait until rising_edge(reset_n);
 
-        loop
-            wait until rising_edge(clk);
-            report "o_cnt = " & work.util.to_hstring(cnt);
-            exit when ( cnt = x"000000FF" );
+    valid <= '1' when cnt < x"00000010" else '0';
+    
+    test_p : process
+    begin
+        test_runner_setup(runner, runner_cfg);
+        
+        while test_suite loop
+            reset_checker_stat;
+            if run("test_counter_zero_at_start") then
+                wait until valid = '1' for 10 ns;
+                check_equal(valid, '0');
+            elsif run("test_counter_values") then
+                wait until rising_edge(clk);
+                check_equal(valid, '1');
+            end if;
         end loop;
 
-        DONE(0) <= '1';
+        test_runner_cleanup(runner);
         wait;
     end process;
-    
-    process
-    begin
-        wait for 4000 ns;
-        assert ( DONE = (DONE'range => '1') ) severity failure;
-        wait;
-    end process;
+    test_runner_watchdog(runner, 10 ms); 
 
 end architecture;

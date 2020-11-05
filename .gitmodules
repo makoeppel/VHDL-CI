@@ -1,3 +1,0 @@
-[submodule "vhdutil"]
-	path = vhdutil
-	url = https://github.com/akozlins/vhdutil.git
